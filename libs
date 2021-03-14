@@ -1,0 +1,8 @@
+# libc default configuration
+/usr/local/lib
+# Multiarch support
+/lib/x86_64-linux-gnu
+/usr/lib/x86_64-linux-gnu
+# Legacy biarch compatibility support
+/lib32
+/usr/lib32
