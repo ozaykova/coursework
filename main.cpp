@@ -14,9 +14,9 @@ int main() {
         umask(0);
         setsid();
         chdir("/");
-        openlog("slog", LOG_PID|LOG_CONS, LOG_USER);
-        syslog(LOG_INFO, "Start working... ");
-        closelog();
+        std::ofstream logger("/home/zaikova/coursework/pidfile", std::ios::app);
+        logger << "Daemon Start working with pid" << std::to_string(getpid());
+        logger.close();
         while (true) {
             LibParser p;
             p.Execute();

@@ -68,7 +68,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--usr", default='zaikova', type=str, help="Enter username or online or all")
     parser.add_argument("--message", default='Hi!', type=str, help="Your message")
+
     args = parser.parse_args()
+    print(args.message)
     if args.usr == "online":
         send_message_all_online(args.message)
     elif args.usr == "all":

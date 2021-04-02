@@ -1,6 +1,8 @@
 #include "LibParser.h"
 #include <fstream>
+#include <sstream>
 #include <unordered_set>
+#include <unistd.h>
 
 bool operator==(const LibVersion& left, const LibVersion& right) {
     if (left.LibName == right.LibName) {
@@ -40,10 +42,9 @@ std::vector<LibVersion> LibParser::GetLibraryVersions() {
                 } else {
                     version.Version = "0";
                 }
-                auto modTime = fs::last_write_time(path);
+                auto modTime = fs::last_write_time(entry);
                 using namespace std::chrono;
-                auto sctp = time_point_cast<system_clock::duration>(modTime - std::filesystem::file_time_type::clock::now()
-                                                                    + system_clock::now());
+                auto sctp = time_point_cast<system_clock::duration>(modTime);
                 version.ModificationTime =  system_clock::to_time_t(sctp);
 
                 LibraryVersions.push_back(version);
@@ -54,32 +55,81 @@ std::vector<LibVersion> LibParser::GetLibraryVersions() {
     return LibraryVersions;
 }
 
-void LibParser::Execute() {
-    auto libs = GetLibraryVersions();
+void LibParser::Notify(std::string& message) {
+    auto pid = fork();
+    if (!pid) {
+        std::string s = "--message=" + message;
+        execl("/home/zaikova/coursework/sender.py", "sender.py", s.c_str(), (char *)NULL); 
+    }
+}
+
+void LibParser::BackupLibMap() {
+    if (LibsMap.empty()) {
+        return;
+    }
     std::ifstream fin;
     fin.open(CONFIG);
-    std::ofstream logger("/var/log/lib_change_log", std::ios::app);
     if (fin) {
         int count;
         std::string name, version, time;
         fin >> count;
-        std::unordered_set<LibVersion, LibVersionHasher> mp;
+
         for (size_t i = 0; i < count; ++i) {
             fin >> name >> version >> time;
-            mp.insert(LibVersion(name, version, time));
-        }
-        for (auto& lib: libs) {
-            auto it = mp.find(lib);
-            if (it != mp.end()) {
-                if (it->Version != lib.Version) {
-                    logger << "Lib " << lib.LibName << " was updated to " << lib.Version << " " << lib.ModificationTime <<  std::endl;
-                }
-            } else {
-                logger << "Lib " << lib.LibName << " was added with version " << lib.Version << " " << lib.ModificationTime << std::endl;
-            }
+            LibsMap.insert(LibVersion(name, version, time));
         }
     }
+    fin.close();
+}
+
+void LibParser::ParseLibs(std::vector<LibVersion>& libs) {
+    std::ofstream logger("/home/zaikova/lib_change_log", std::ios::app);
+    std::ostringstream log;
+    std::ostringstream humanMessage;
+    for (auto& lib: libs) {
+        auto it = LibsMap.find(lib);
+        if (it != LibsMap.end()) {
+            const_cast<LibVersion*>(&(*it))->Marked = true;
+            if (it->Version != lib.Version) {
+                log << "upd\n" << lib.LibName << "\n" << lib.Version << "\n" << lib.ModificationTime << "\n";
+                humanMessage << "Library " << lib.LibName << ".so" << " was updated from version " << it->Version << " to " << lib.Version << "\\n";
+                const_cast<LibVersion*>(&(*it))->Version = lib.Version;
+            }
+        } else {
+            log << "add\n" << lib.LibName << "\n" << lib.Version << "\n" << lib.ModificationTime << "\n";
+            humanMessage << "Library " << lib.LibName << ".so" << " was added with version " << lib.Version << "\\n";
+            lib.Marked = true;
+            LibsMap.insert(lib);
+        }
+    }
+    std::vector<LibVersion> deleted;
+    for (auto& lib: LibsMap) {
+        if (!lib.Marked) {
+            deleted.push_back(lib);
+            log << "del\n" << lib.LibName << "\n" << lib.Version << "\n" << lib.ModificationTime << "\n";
+            humanMessage << "Library " << lib.LibName << ".so" << " was deleted \\n";
+        }
+    }
+    for (size_t i = 0; i < deleted.size(); ++i) {
+        LibsMap.erase(deleted[i]);
+    }
+    for (auto& lib: LibsMap) {
+        const_cast<LibVersion*>(&lib)->Marked = false;
+    }
+
+    auto result = log.str();
+    auto msg = humanMessage.str();
+    if (result.size()) {
+        logger << result;
+        Notify(msg);
+    }
     logger.close();
+}
+
+void LibParser::Execute() {
+    BackupLibMap();
+    auto libs = GetLibraryVersions();
+    ParseLibs(libs);
     std::ofstream fout(CONFIG, std::ios::trunc);
     fout << libs.size() << std::endl;
     for (auto& lib: libs) {
