@@ -91,7 +91,7 @@ void LibParser::ParseLibs(std::vector<LibVersion>& libs) {
         if (it != LibsMap.end()) {
             const_cast<LibVersion*>(&(*it))->Marked = true;
             if (it->Version != lib.Version) {
-                log << "upd\n" << lib.LibName << "\n" << lib.Version << "\n" << lib.ModificationTime << "\n";
+                log << "upd\n" << lib.LibName << "\n" << it->Version << "\n" << lib.Version << "\n" << lib.ModificationTime << "\n";
                 humanMessage << "Library " << lib.LibName << ".so" << " was updated from version " << it->Version << " to " << lib.Version << "\\n";
                 const_cast<LibVersion*>(&(*it))->Version = lib.Version;
             }
