@@ -1,4 +1,3 @@
-
 #!/usr/bin/python3
 
 import psutil
@@ -7,9 +6,12 @@ import subprocess
 import argparse
 import json
 import datetime
+import threading
 from typing import Optional
+import sys, os, time, atexit
 
 from fastapi import FastAPI
+from multiprocessing import Process
 import random
 
 import uvicorn
@@ -17,8 +19,6 @@ import uvicorn
 import time
 from db_connect import ChangeLogDBConnector
 
-
-app = FastAPI()
 
 class PackageProcessor:
     def get_curr_state(self):
@@ -88,8 +88,10 @@ class AptWrapper:
         # self.update_out = p.stdout.read().decode()
 
 
+app = FastAPI()
+
 @app.get("/add")
-def add(lib: str):
+async def add(lib: str):
     print(lib)
     processor = PackageProcessor()
     l = processor.get_curr_state()
@@ -113,7 +115,7 @@ def add(lib: str):
 
 
 @app.get("/delete")
-def delete(lib: str):
+async def delete(lib: str):
     print(lib)
     processor = PackageProcessor()
     l = processor.get_curr_state()
@@ -137,7 +139,7 @@ def delete(lib: str):
 
 
 @app.get("/update")
-def update():
+async def update():
     processor = PackageProcessor()
     l = processor.get_curr_state()
 
@@ -158,6 +160,41 @@ def update():
         msg = '\"' + 'Updated packages: ' + msg[:len(msg) - 2] + '\"'
         subprocess.call(f"python3 sender.py --usr=online --message={msg}", shell=True)
 
+def starter():
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+def daemonize():
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)
+    except Exception as e:
+        sys.stderr.write("fork #1 failed: \n")
+        sys.exit(1)
+
+    os.chdir(".")
+    os.setsid()
+    os.umask(0)
+
+    # делаем второй fork
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)
+        print('started')
+    except Exception as e:
+        sys.stderr.write("fork #2 failed: \n")
+        sys.exit(1)
+
+
+    # перенаправление стандартного ввода/вывода
+    sys.stdout.flush()
+    sys.stderr.flush()
+
 
 if __name__ == "__main__":
+    daemonize()
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+    #proc.join()
