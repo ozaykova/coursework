@@ -92,12 +92,12 @@ void LibParser::ParseLibs(std::vector<LibVersion>& libs) {
             const_cast<LibVersion*>(&(*it))->Marked = true;
             if (it->Version != lib.Version) {
                 log << "upd\n" << lib.LibName << "\n" << it->Version << "\n" << lib.Version << "\n" << lib.ModificationTime << "\n";
-                humanMessage << "Library " << lib.LibName << ".so" << " was updated from version " << it->Version << " to " << lib.Version << std::endl;
+                humanMessage << "Library " << lib.LibName << ".so" << " was updated from version " << it->Version << " to " << lib.Version;
                 const_cast<LibVersion*>(&(*it))->Version = lib.Version;
             }
         } else {
             log << "add\n" << lib.LibName << "\n" << lib.Version << "\n" << lib.ModificationTime << "\n";
-            humanMessage << "Library " << lib.LibName << ".so" << " was added with version " << lib.Version << std::endl;
+            humanMessage << "Library " << lib.LibName << ".so" << " was added with version " << lib.Version;
             lib.Marked = true;
             LibsMap.insert(lib);
         }
@@ -107,7 +107,7 @@ void LibParser::ParseLibs(std::vector<LibVersion>& libs) {
         if (!lib.Marked) {
             deleted.push_back(lib);
             log << "del\n" << lib.LibName << "\n" << lib.Version << "\n" << lib.ModificationTime << "\n";
-            humanMessage << "Library " << lib.LibName << ".so" << " was deleted " <<  std::endl;
+            humanMessage << "Library " << lib.LibName << ".so" << " was deleted";
         }
     }
     for (size_t i = 0; i < deleted.size(); ++i) {

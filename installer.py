@@ -9,6 +9,7 @@ import datetime
 import threading
 from typing import Optional
 import sys, os, time, atexit
+from sender import send_message_all_online, send_message_all, send_message_to_user
 
 from fastapi import FastAPI
 from multiprocessing import Process
@@ -73,25 +74,25 @@ PIPE = subprocess.PIPE
 
 class AptWrapper:
     def install(self, lib):
-        p = subprocess.call(f"sudo apt-get install {lib} -y", shell=True, stdin=PIPE, stdout=PIPE,
+        p = subprocess.Popen(f"sudo apt-get install {lib} -y", shell=True, stdin=PIPE, stdout=PIPE,
                 stderr=subprocess.STDOUT, close_fds=True)
-        # self.install_out = p.stdout.read().decode()
+        self.install_out = p.stdout.read().decode()
 
     def remove(self, lib):
-        p = subprocess.call(f"sudo apt-get remove {lib} -y", shell=True, stdin=PIPE, stdout=PIPE,
+        p = subprocess.Popen(f"sudo apt-get remove {lib} -y", shell=True, stdin=PIPE, stdout=PIPE,
                 stderr=subprocess.STDOUT, close_fds=True)
-        # self.remove_out = p.stdout.read().decode()
+        self.remove_out = p.stdout.read().decode()
 
     def update(self):
-        p = subprocess.call(f"sudo apt-get update && sudo apt-get upgrade -y", shell=True, stdin=PIPE, stdout=PIPE,
+        p = subprocess.Popen(f"sudo apt-get update && sudo apt-get upgrade -y", shell=True, stdin=PIPE, stdout=PIPE,
                 stderr=subprocess.STDOUT, close_fds=True)
-        # self.update_out = p.stdout.read().decode()
+        self.update_out = p.stdout.read().decode()
 
 
 app = FastAPI()
 
 @app.get("/add")
-async def add(lib: str):
+async def add(lib: str, response_model=str):
     print(lib)
     processor = PackageProcessor()
     l = processor.get_curr_state()
@@ -111,7 +112,10 @@ async def add(lib: str):
 
     if len(msg) > 2:
         msg = '\"' + 'Added packages: ' + msg[:len(msg) - 2] + '\"'
-        subprocess.call(f"python3 sender.py --usr=online --message={msg}", shell=True)
+        send_message_all(msg)
+    if len(delta) > 0:
+        return 'Installation completed successfully'
+    return 'Installation failed. Connect with admin'
 
 
 @app.get("/delete")
@@ -135,7 +139,11 @@ async def delete(lib: str):
 
     if len(msg) > 2:
         msg = '\"' + 'Deleted packages: ' + msg[:len(msg) - 2] + '\"'
-        subprocess.call(f"python3 sender.py --usr=online --message={msg}", shell=True)
+        send_message_all(msg)
+
+    if len(delta) > 0:
+        return 'Deinstallation completed successfully'
+    return 'Deinstallation failed. Connect with admin'
 
 
 @app.get("/update")
@@ -158,7 +166,12 @@ async def update():
 
     if len(msg) > 2:
         msg = '\"' + 'Updated packages: ' + msg[:len(msg) - 2] + '\"'
-        subprocess.call(f"python3 sender.py --usr=online --message={msg}", shell=True)
+        send_message_all(msg)
+
+    if len(delta) > 0:
+        return 'Update completed successfully'
+    return 'Update failed. Connect with admin'
+
 
 def starter():
     uvicorn.run(app, host="0.0.0.0", port=8000)
