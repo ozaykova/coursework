@@ -16,13 +16,21 @@ int main() {
         chdir("/");
         std::ofstream logger("/home/zaikova/coursework/pidfile", std::ios::app);
         logger << "Daemon Start working with pid" << std::to_string(getpid());
-        logger.close();
+        logger.close(); 
+        auto subpid = fork();
+        if (!subpid) { 
+            umask(0);
+            setsid();
+            chdir("/");
+            execl("/home/zaikova/coursework/installer.py", "installer.py", (char *)NULL);
+        } else {
         while (true) {
             LibParser p;
             p.Execute();
-            sleep(300);
+            sleep(30);
+        }
         }
     } else {
         return 0;
-    }
+   }
 }

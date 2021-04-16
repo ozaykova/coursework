@@ -6,6 +6,8 @@ import subprocess
 import argparse
 import json
 import datetime
+import time
+from db_connect import MessageboxDBConnector
 
 FILTER_CONSTANT = 2500000
 
@@ -29,8 +31,11 @@ def send_message_to_user(username, message):
         subprocess.call(f"echo {message} | write {username} {terminal}", shell=True)
 
 
-def send_to_offline(usernames, message):
-    msg = dict()
+def send_to_offline(username, message):
+    db = MessageboxDBConnector()
+    db.insert(user=username, message=message, ts=int(time.time()))
+
+    '''msg = dict()
     messages = []
     with open('messagebox', 'r') as f:
         messages = json.load(f)
@@ -45,15 +50,10 @@ def send_to_offline(usernames, message):
             messages.append(msg)
 
     with open('messagebox', 'w') as f:
-        json.dump(messages, f)
+        json.dump(messages, f)'''
 
 
-def send_message_all_online(message):
-    subprocess.call("wall %s" % message)
-
-
-def send_message_all(message):
-    send_message_all_online(message)
+def get_user_list():
     PIPE = subprocess.PIPE
     p = subprocess.Popen("getent passwd | grep '/home'", shell=True, stdin=PIPE, stdout=PIPE,
         stderr=subprocess.STDOUT, close_fds=True)
@@ -61,21 +61,31 @@ def send_message_all(message):
     users = out.decode().split('\n')
     for i in range(len(users)):
         users[i] = users[i].split(':')[0]
+    return users
 
-    send_to_offline(users, message)
 
-def main():
+def send_message_all_online(message):
+    users = get_user_list()
+
+    for usr in users:
+        send_message_to_user(usr, message)
+
+def send_message_all(message):
+    users = get_user_list()
+    # send_message_all_online(users, message)
+
+    send_to_offline('all', message)
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--usr", default='zaikova', type=str, help="Enter username or online or all")
     parser.add_argument("--message", default='Hi!', type=str, help="Your message")
 
     args = parser.parse_args()
-    print(args.message)
     if args.usr == "online":
         send_message_all_online(args.message)
     elif args.usr == "all":
         send_message_all(args.message)
     else:
         send_message_to_user(args.usr, args.message)
-
-main()
